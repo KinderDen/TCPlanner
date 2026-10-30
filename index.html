@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TCPlanner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@700&text=%D0%A2%D0%A1%D0%A0&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2096%2096%22%20fill%3D%22none%22%3E%3Cg%20stroke-width%3D%226%22%20stroke-linecap%3D%22round%22%3E%3Cpath%20d%3D%22M48%2019.5%20A28.5%2028.5%200%200%201%2075.7%2054.9%22%20stroke%3D%22%232b8a3e%22/%3E%3Cpath%20d%3D%22M72.7%2062.3%20A28.5%2028.5%200%200%201%2028.2%2068.5%22%20stroke%3D%22%23e8890c%22/%3E%3Cpath%20d%3D%22M23.3%2062.3%20A28.5%2028.5%200%200%201%2040.1%2020.5%22%20stroke%3D%22%23c92a2a%22/%3E%3C/g%3E%3Ccircle%20cx%3D%2248%22%20cy%3D%2248%22%20r%3D%2215%22%20fill%3D%22%231a1a1a%22/%3E%3Ctext%20x%3D%2248%22%20y%3D%2252%22%20text-anchor%3D%22middle%22%20font-size%3D%229.5%22%20font-weight%3D%22700%22%20fill%3D%22%23fff%22%20font-family%3D%22Arial%2Csans-serif%22%20letter-spacing%3D%220.5%22%3E%D0%A2%D0%A1%D0%A0%3C/text%3E%3C/svg%3E">
 <style>
 :root{
   --bg:#ffffff; --text:#1a1a1a; --text2:#555; --text3:#999;
@@ -77,6 +81,7 @@ nav{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:16px}
 .sortopt{font-size:13px;padding:7px 10px;border-radius:7px;cursor:pointer;color:var(--text)}
 .sortopt:hover{background:var(--muted)}
 .sortopt.on{font-weight:600}
+.sortopt.locked{color:var(--text3)}
 .sortopt.cat{padding-left:12px}
 .sortopt.cat::before{content:'\2022';margin-right:8px;color:var(--text3)}
 .h-card{cursor:pointer}
@@ -131,7 +136,7 @@ ol.steps li{margin-bottom:6px;line-height:1.5}
 </style>
 </head>
 <body>
-<h1>TCPlanner <span style="font-size:12px;font-weight:400;color:var(--text3)">v1.0.1</span></h1>
+<h1 style="display:flex;align-items:center;gap:10px"><svg viewBox="0 0 96 96" fill="none" style="width:34px;height:34px;flex:none"><g stroke-width="6" stroke-linecap="round"><path d="M48 19.5 A28.5 28.5 0 0 1 75.7 54.9" stroke="#2b8a3e"/><path d="M72.7 62.3 A28.5 28.5 0 0 1 28.2 68.5" stroke="#e8890c"/><path d="M23.3 62.3 A28.5 28.5 0 0 1 40.1 20.5" stroke="#c92a2a"/></g><circle cx="48" cy="48" r="15" fill="#1a1a1a"/><text x="48" y="51.5" text-anchor="middle" font-size="8.2" font-weight="700" fill="#fff" font-family="Unbounded,Arial,sans-serif" letter-spacing="0">ТСР</text></svg><span>TCPlanner <span style="font-size:12px;font-weight:400;color:var(--text3)">v1.1.4</span></span></h1>
 <div class="sub">Цикл: заявка → сертификат → покупка → получение → срок пользования. Повторную заявку можно подать за 30 дней до конца срока.</div>
 <nav id="tabs">
   <button class="tab on" data-t="tasks">Ближайшие задачи</button>
@@ -142,13 +147,20 @@ ol.steps li{margin-bottom:6px;line-height:1.5}
   <button class="tab" data-t="settings">Настройки</button>
 </nav>
 <div id="view"></div>
+<div class="exp" id="persist-warn" style="display:none;border-color:var(--warn);color:var(--warn)">
+  Ваш браузер не разрешает сохранение данных для локальных файлов — изменения пропадут после закрытия страницы. Рекомендуем Chrome или Edge, либо настройте синхронизацию с Google Таблицей.
+</div>
 <div class="exp">Данные хранятся только в вашем браузере (localStorage) и никуда не отправляются.</div>
 
 <script>
 const DAY = 864e5;
+let persistOk=true;
+const memStore={};
+function lsGet(k){ try{ return localStorage.getItem(k); }catch(e){ persistOk=false; return (k in memStore)? memStore[k] : null; } }
+function lsSet(k,v){ try{ localStorage.setItem(k,v); memStore[k]=v; }catch(e){ memStore[k]=v; persistOk=false; } }
 const store = {
-  load(){ try{ return JSON.parse(localStorage.getItem('tsr-planner')) || null }catch(e){ return null } },
-  save(){ localStorage.setItem('tsr-planner', JSON.stringify({items:state.items, history:state.history, seq:state.seq})) }
+  load(){ try{ const r=lsGet('tsr-planner'); return r? JSON.parse(r)||null : null; }catch(e){ return null } },
+  save(){ lsSet('tsr-planner', JSON.stringify({items:state.items, history:state.history, seq:state.seq})) }
 };
 function migrate(d){
   if(!d) return null;
@@ -164,7 +176,8 @@ const state = Object.assign({}, def, migrate(store.load()) || {});
 state.tab='tasks'; state.calYear=new Date().getFullYear(); state.calFilter=null; state._lastFilter=null; state.history.forEach(h=>{ if(!h.id) h.id=++state.seq; });
 state.items.forEach(it=>{ if(it.cat==='коляска') it.cat='коляски'; });
 if(state.sortCat==='коляска') state.sortCat='коляски';
-state.doneHide=state.doneHide||{}; state.editId=null; state.showForm=false; state.confirmDel=null; state.actionModal=null; state.histForm=false; state.histEdit=null; state.noteOpen=state.noteOpen||{}; state.sortMode=state.sortMode||'manual'; state.sortCat=state.sortCat||''; state.sortOpen=false; state.hListOpen=false; state.sheetUrl=localStorage.getItem('tsr-sheet-url')||''; state.syncMsg='';
+state.doneHide=state.doneHide||{}; state.editId=null; state.showForm=false; state.confirmDel=null; state.actionModal=null; state.histForm=false; state.histEdit=null; state.noteOpen=state.noteOpen||{}; state.sortMode=state.sortMode||'manual'; state.sortCat=state.sortCat||''; state.sortOpen=false; state.hListOpen=false; state.sheetUrl=lsGet('tsr-sheet-url')||''; state.syncMsg='';
+state.pro=lsGet('tsr-pro')==='1'; state.proMsg='';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -274,7 +287,7 @@ function buildTasks(){
     if(it.stage==='applying'){
       const chk=new Date(parseD(it.appDate).getTime()+7*DAY);
       const late=now>chk;
-      t.push({date:chk,label:'Проверить одобрение: '+it.name,tag:late?'проверьте срочно':'5–7 дней на рассмотрение',tagc:late?'red':'',hot:late,k:'chk'+it.id,act:'approved',iid:it.id,stage:it.stage});
+      t.push({date:chk,label:'Проверить одобрение: '+it.name,tag:late?'проверить срочно':'5–7 дней на рассмотрение',tagc:late?'red':'',hot:late,k:'chk'+it.id,act:'approved',iid:it.id,stage:it.stage});
     }
     if(it.stage==='approved'){
       const dead=new Date(parseD(it.certDate).getTime()+60*DAY);
@@ -305,7 +318,8 @@ function flowHTML(it){
   return '<div class="flow">'+STAGES.map((s,i)=>'<span class="fstep'+(i<=idx?' on':'')+'">'+names[s]+'</span>').join('')+'</div>';
 }
 
-const APP_VER='1.0.1';
+const APP_VER='1.1.4';
+const PRO_TABS={};
 const CATS=['урология','аппараты','туторы','коляски','прочее'];
 const STAGE_NUM={new:1,applying:2,approved:3,bought:4,using:5};
 const NUM_STAGE={1:'new',2:'applying',3:'approved',4:'bought',5:'using'};
@@ -324,6 +338,11 @@ const APPS_SCRIPT_CODE=[
 '  return /^\\d{4}-\\d{2}-\\d{2}$/.test(s) ? s : null;',
 '}',
 'function doGet(){',
+'  if(e.parameter && e.parameter.action==="check"){',
+'    const kv=sheetByName("Ключи").getDataRange().getValues();',
+'    const ok=kv.some(function(r){return String(r[0]).trim()!=="" && String(r[0]).trim()===String(e.parameter.key).trim();});',
+'    return ContentService.createTextOutput(JSON.stringify({ok:ok})).setMimeType(ContentService.MimeType.JSON);',
+'  }',
 '  const out={items:[],history:[]};',
 '  const vals=sheetByName(SHEET_TSR).getDataRange().getValues();',
 '  for(let i=1;i<vals.length;i++){',
@@ -356,7 +375,21 @@ const APPS_SCRIPT_CODE=[
 '}'
 ].join('\n');
 
-function sheetUrlSave(v){ state.sheetUrl=v; localStorage.setItem('tsr-sheet-url', v||''); }
+function sheetUrlSave(v){ state.sheetUrl=v; lsSet('tsr-sheet-url', v||''); }
+async function activateKey(key){
+  key=String(key||'').trim();
+  if(!key){ state.proMsg='Введите ключ активации.'; view(); return; }
+  const url=state.sheetUrl;
+  if(!url){ state.proMsg='Сначала сохраните ссылку на веб-приложие — оно же проверяет ключи.'; view(); return; }
+  state.proMsg='Проверяю ключ…'; view();
+  try{
+    const r=await fetch(url+'?action=check&key='+encodeURIComponent(key));
+    const d=await r.json();
+    if(d.ok){ state.pro=true; lsSet('tsr-pro','1'); state.proMsg='Ключ принят — PRO активна. Спасибо!'; }
+    else state.proMsg='Ключ не найден. Проверьте правильность ввода.';
+  }catch(e){ state.proMsg='Ошибка проверки: '+e.message; }
+  view();
+}
 async function sheetPush(){
   const url=state.sheetUrl;
   if(!url){ state.syncMsg='Сначала вставьте ссылку на веб-приложие и нажмите «Сохранить ссылку».'; view(); return; }
@@ -459,7 +492,16 @@ function view(){
   }
 
   if(t==='settings'){
-    v.innerHTML='<div class="grp">Синхронизация с Google Таблицей</div>'+
+    const proBlock='<div class="grp">PRO-версия</div>'+
+      '<div class="form">'+
+      (state.pro
+        ? '<div style="font-size:14px;color:var(--ok);font-weight:600">\u2713 PRO активна — все функции открыты</div>'
+        : '<div style="font-size:13px;color:var(--text2);margin-bottom:10px;line-height:1.5">PRO открывает: вкладки «Календарь» и «История», сортировки (по этапам, срочности, категории) и синхронизацию с Google Таблицей.</div>')+
+      '<div class="fld"><span class="lbl">Ключ активации</span><input class="inp" id="p-key" placeholder="Например: TSR-2026-ABCD"></div>'+
+      '<div style="display:flex;gap:8px"><button class="btn pri" id="p-act">Активировать</button></div>'+
+      (state.proMsg?'<div class="syncmsg">'+esc(state.proMsg)+'</div>':'')+
+      '</div>';
+    v.innerHTML=proBlock+'<div class="grp">Синхронизация с Google Таблицей</div>'+
       '<div class="form" style="margin-top:10px">'+
       '<div class="fld"><span class="lbl">Ссылка на веб-приложие Google Apps Script</span>'+
       '<input class="inp" id="s-url" value="'+esc(state.sheetUrl||'')+'" placeholder="https://script.google.com/macros/s/…/exec"></div>'+
@@ -476,10 +518,13 @@ function view(){
       '<li>Скопируйте <b>URL веб-приложия</b> (заканчивается на /exec) и вставьте его в поле выше → «Сохранить ссылку».</li>'+
       '<li>Нажмите <b>«Выгрузить в таблицу»</b> — планировщик создаст листы «ТСР» и «История» и запишет текущие данные. Либо «Загрузить из таблицы», чтобы данные пошли из таблицы в планировщик.</li>'+
       '<li><b>Прошлые циклы:</b> на листе «История» заполните строки: Название | Пользование с | Пользование по (даты в формате ГГГГ-ММ-ДД, например 2025-03-14). Текущие изделия можно править прямо на листе «ТСР» (колонка «Этап (1-5)»: 1 — ожидание заявки, 2 — заявка подана, 3 — ЭС получен, 4 — ТСР оплачено, 5 — ТСР получено). После правок в таблице нажмите «Загрузить из таблицы».</li>'+
+      '<li><b>Выдача PRO:</b> создайте в таблице лист «Ключи» и пишите ключи в столбец A — по одному в строке. Ключ — любая строка, например TSR-2026-ABCD. Покупатель вводит его в «Настройки» — приложение проверит через это же веб-приложие.</li>'+
       '<li>Важно: не редактируйте таблицу и планировщик одновременно — при синхронизации побеждают те данные, из которых вы загружаете. Доступ «Все» означает, что таблицу по ссылке может открыть любой человек — не храните там личные данные (планировщик их и не собирает).</li>'+
       '</ol>'+
       '<div class="lbl" style="margin-top:10px">Код скрипта (вставить в Apps Script целиком):</div>'+
       '<pre class="code">'+esc(APPS_SCRIPT_CODE)+'</pre></details></div>';
+    const pact=$('#p-act');
+    if(pact) pact.onclick=()=>activateKey($('#p-key').value);
     const ssv=$('#s-saveurl');
     if(ssv) ssv.onclick=()=>{ sheetUrlSave($('#s-url').value.trim()); state.syncMsg='Ссылка сохранена.'; view(); };
     const spush=$('#s-push'); if(spush) spush.onclick=()=>sheetPush();
@@ -517,7 +562,8 @@ if(t==='tsr'){
     const sortPop = state.sortOpen?
       '<div class="sortpop">'+
       ['manual|вручную','stage|по этапам','urgent|по срочности','category|по категории'].map(s=>{const v=s.split('|')[0],l=s.split('|')[1];
-        return '<div class="sortopt'+(state.sortMode===v?' on':'')+'" data-sort-mode="'+v+'">'+l+'</div>';}).join('')+
+        const locked=false;
+        return '<div class="sortopt'+(state.sortMode===v?' on':'')+(locked?' locked':'')+'" data-sort-mode="'+v+'"'+(locked?' data-pro-lock="1"':'')+'">'+l+(locked?' \u00b7 PRO':'')+'</div>';}).join('')+
       (state.sortMode==='category'? '<div style="border-top:1px solid var(--border);margin:6px 0"></div>'+
         CATS.map(c=>'<div class="sortopt cat'+(state.sortCat===c?' on':'')+'" data-sort-cat="'+c+'">'+c+'</div>').join('') : '')+
       '</div>' : '';
@@ -650,6 +696,13 @@ if(t==='tsr'){
     const fsort=$('#f-sort');
     if(fsort) fsort.onclick=()=>{ state.sortOpen=!state.sortOpen; view(); };
     document.querySelectorAll('[data-sort-mode]').forEach(b=>b.onclick=()=>{
+      if(b.dataset.proLock){
+        state.sortOpen=false;
+        state.proMsg='Сортировка \u00ab'+b.textContent.replace(' · PRO','')+'\u00bb доступна в PRO-версии.';
+        state.tab='settings';
+        document.querySelectorAll('#tabs .tab').forEach(x=>x.classList.toggle('on',x.dataset.t==='settings'));
+        view(); return;
+      }
       state.sortMode=b.dataset.sortMode;
       if(state.sortMode!=='category'){ state.sortOpen=false; }
       else if(!state.sortCat) state.sortCat=CATS[0];
@@ -847,8 +900,15 @@ function viewCalendar(v){
 
 function bind(){
   document.querySelectorAll('#tabs .tab').forEach(b=>b.onclick=()=>{
+    const t=b.dataset.t;
+    if(PRO_TABS[t]&&!state.pro){
+      state.proMsg='Вкладка \u00ab'+({cal:'Календарь',arch:'История'})[t]+'\u00bb доступна в PRO-версии. Введите ключ ниже.';
+      state.tab='settings';
+      document.querySelectorAll('#tabs .tab').forEach(x=>x.classList.toggle('on',x.dataset.t==='settings'));
+      view(); return;
+    }
     document.querySelectorAll('#tabs .tab').forEach(x=>x.classList.remove('on'));
-    b.classList.add('on'); state.tab=b.dataset.t; view();
+    b.classList.add('on'); state.tab=t; view();
   });
   document.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>advance(+b.dataset.id, b.dataset.act));
   document.querySelectorAll('[data-del-item]').forEach(b=>b.onclick=()=>{ state.items=state.items.filter(i=>i.id!=b.dataset.delItem); store.save(); view(); });
@@ -999,6 +1059,7 @@ document.addEventListener('drop',e=>{
   dragId=null; clearDnD();
 });
 document.addEventListener('dragend',()=>{ dragId=null; clearDnD(); });
+if(!persistOk){ const pw=document.getElementById('persist-warn'); if(pw) pw.style.display='block'; }
 view();
 </script>
 </body>
