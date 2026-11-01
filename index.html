@@ -137,7 +137,7 @@ ol.steps li{margin-bottom:6px;line-height:1.5}
 <base target="_blank">
 </head>
 <body>
-<h1 style="display:flex;align-items:center;gap:5px"><svg viewBox="0 0 96 96" fill="none" style="width:48px;height:48px;flex:none"><g stroke-width="6" stroke-linecap="round"><path d="M48 19.5 A28.5 28.5 0 0 1 75.7 54.9" stroke="#2b8a3e"/><path d="M72.7 62.3 A28.5 28.5 0 0 1 28.2 68.5" stroke="#e8890c"/><path d="M23.3 62.3 A28.5 28.5 0 0 1 40.1 20.5" stroke="#c92a2a"/></g><circle cx="48" cy="48" r="15" fill="#1a1a1a"/><text x="48" y="51.5" text-anchor="middle" font-size="8.2" font-weight="700" fill="#fff" font-family="Unbounded,Arial,sans-serif" letter-spacing="0">ТСР</text></svg><span>TCPlanner <span style="font-size:12px;font-weight:400;color:var(--text3)">v1.2.5</span></span></h1>
+<h1 style="display:flex;align-items:center;gap:5px"><svg viewBox="0 0 96 96" fill="none" style="width:48px;height:48px;flex:none"><g stroke-width="6" stroke-linecap="round"><path d="M48 19.5 A28.5 28.5 0 0 1 75.7 54.9" stroke="#2b8a3e"/><path d="M72.7 62.3 A28.5 28.5 0 0 1 28.2 68.5" stroke="#e8890c"/><path d="M23.3 62.3 A28.5 28.5 0 0 1 40.1 20.5" stroke="#c92a2a"/></g><circle cx="48" cy="48" r="15" fill="#1a1a1a"/><text x="48" y="51.5" text-anchor="middle" font-size="8.2" font-weight="700" fill="#fff" font-family="Unbounded,Arial,sans-serif" letter-spacing="0">ТСР</text></svg><span>TCPlanner <span style="font-size:12px;font-weight:400;color:var(--text3)">v1.2.6</span></span></h1>
 <div class="sub">Цикл: заявка → сертификат → покупка → получение → срок пользования. Повторную заявку можно подать за 30 дней до конца срока.</div>
 <nav id="tabs">
   <button class="tab on" data-t="tasks">Ближайшие задачи</button>
@@ -256,7 +256,7 @@ function doAdvance(id, act, d, sum, price){
   if(act==='bought'){ it.stage='bought'; it.buyDate=d; it.price=price||''; }
   if(act==='received'){
     const startDate=it.buyDate||d;
-    if(it.start) state.history.push({id:++state.seq, name:it.name, from:it.start, to:startDate, months:it.months, appDate:it.appDate||null, certDate:it.certDate||null, buyDate:it.buyDate||null});
+    state.history.push({id:++state.seq, name:it.name, from:it.start||it.buyDate||d, to:startDate, months:it.months, appDate:it.appDate||null, certDate:it.certDate||null, buyDate:it.buyDate||null});
     Object.assign(it,{start:startDate, stage:'using', appDate:null, certDate:null, buyDate:null, sum:null});
   }
   store.save(); view();
@@ -318,7 +318,7 @@ function flowHTML(it){
   return '<div class="flow">'+STAGES.map((s,i)=>'<span class="fstep'+(i<=idx?' on':'')+'">'+names[s]+'</span>').join('')+'</div>';
 }
 
-const APP_VER='1.2.5';
+const APP_VER='1.2.6';
 const PRO_TABS={};
 const CATS=['урология','аппараты','туторы','коляски','прочее'];
 const STAGE_NUM={new:1,applying:2,approved:3,bought:4,using:5};
@@ -948,7 +948,7 @@ function bind(){
       const sStart=gd('e-start')||todayISO();
       state.rcAsk=true;
       rcAction=()=>{
-        if(it.start) state.history.push({id:++state.seq, name:it.name, from:it.start, to:sStart, months:it.months, appDate:it.appDate||null, certDate:it.certDate||null, buyDate:it.buyDate||null});
+        state.history.push({id:++state.seq, name:it.name, from:it.start||it.buyDate||sStart, to:sStart, months:it.months, appDate:it.appDate||null, certDate:it.certDate||null, buyDate:it.buyDate||null});
         applyEdit();
       };
       view(); return;
